@@ -1,3 +1,6 @@
 {
-    "debater": "有效沟通"
+    "argumate": "Argumate",
+    "help": "表达想法时遇到困难？无法说服对方？",
+    "wechat": "微信回复生成", "voice": "通话语言生成",
+    "inputHint": "与Argumate辩论"
 }

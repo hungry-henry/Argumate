@@ -1,6 +1,6 @@
 {
-    "name": "debater",
-    "short_name": "debater",
+    "name": "argumate",
+    "short_name": "argumate",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

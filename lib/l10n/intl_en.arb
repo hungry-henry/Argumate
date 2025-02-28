@@ -1,3 +1,6 @@
 {
-    "debater": "Debater"
+    "argumate": "Argumate",
+    "help": "Can't to convince others? Having trouble expressing?",
+    "wechat": "WeChat reply generate", "voice": "Call reply generate",
+    "inputHint": "Debate with Argumate..."
 }

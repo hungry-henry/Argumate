@@ -50,11 +50,51 @@ class S {
     return Localizations.of<S>(context, S);
   }
 
-  /// `Debater`
-  String get debater {
+  /// `Argumate`
+  String get argumate {
     return Intl.message(
-      'Debater',
-      name: 'debater',
+      'Argumate',
+      name: 'argumate',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Can't to convince others? Having trouble expressing?`
+  String get help {
+    return Intl.message(
+      'Can\'t to convince others? Having trouble expressing?',
+      name: 'help',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `WeChat reply generate`
+  String get wechat {
+    return Intl.message(
+      'WeChat reply generate',
+      name: 'wechat',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Call reply generate`
+  String get voice {
+    return Intl.message(
+      'Call reply generate',
+      name: 'voice',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Debate with Argumate...`
+  String get inputHint {
+    return Intl.message(
+      'Debate with Argumate...',
+      name: 'inputHint',
       desc: '',
       args: [],
     );

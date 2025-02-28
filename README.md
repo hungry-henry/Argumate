@@ -1,4 +1,4 @@
-# debater
+# argumate
 
 A new Flutter project.
 

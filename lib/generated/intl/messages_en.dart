@@ -22,6 +22,12 @@ class MessageLookup extends MessageLookupByLibrary {
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
-        "debater": MessageLookupByLibrary.simpleMessage("Debater")
+        "argumate": MessageLookupByLibrary.simpleMessage("Argumate"),
+        "help": MessageLookupByLibrary.simpleMessage(
+            "Can\'t to convince others? Having trouble expressing?"),
+        "inputHint":
+            MessageLookupByLibrary.simpleMessage("Debate with Argumate..."),
+        "voice": MessageLookupByLibrary.simpleMessage("Call reply generate"),
+        "wechat": MessageLookupByLibrary.simpleMessage("WeChat reply generate")
       };
 }
