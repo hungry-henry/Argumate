@@ -23,11 +23,22 @@ class MessageLookup extends MessageLookupByLibrary {
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
         "argumate": MessageLookupByLibrary.simpleMessage("Argumate"),
+        "boss": MessageLookupByLibrary.simpleMessage("Talk with boss"),
+        "call": MessageLookupByLibrary.simpleMessage("Voice call"),
+        "chooseInput":
+            MessageLookupByLibrary.simpleMessage("Choose methods to input: "),
+        "chooseScene": MessageLookupByLibrary.simpleMessage("Choose a Scene: "),
+        "copy": MessageLookupByLibrary.simpleMessage("Copy msgs to input"),
+        "debate": MessageLookupByLibrary.simpleMessage("Debate"),
+        "flirt": MessageLookupByLibrary.simpleMessage("Flirt"),
         "help": MessageLookupByLibrary.simpleMessage(
             "Can\'t to convince others? Having trouble expressing?"),
-        "inputHint":
-            MessageLookupByLibrary.simpleMessage("Debate with Argumate..."),
-        "voice": MessageLookupByLibrary.simpleMessage("Call reply generate"),
-        "wechat": MessageLookupByLibrary.simpleMessage("WeChat reply generate")
+        "inputHint": MessageLookupByLibrary.simpleMessage(
+            "Debate with me, or copy messages context here"),
+        "more": MessageLookupByLibrary.simpleMessage("more..."),
+        "quarrel": MessageLookupByLibrary.simpleMessage("Quarrel"),
+        "screenshot":
+            MessageLookupByLibrary.simpleMessage("Screenshot for context"),
+        "teacher": MessageLookupByLibrary.simpleMessage("Counter with teacher")
       };
 }

@@ -1,6 +1,14 @@
 {
     "argumate": "Argumate",
     "help": "表达想法时遇到困难？无法说服对方？",
-    "wechat": "微信回复生成", "voice": "通话语言生成",
-    "inputHint": "与Argumate辩论"
+
+    "chooseScene": "选择场景: ",
+    "quarrel": "吵架", "debate": "辩论", 
+    "boss": "与领导沟通", "flirt": "与异性交往", "teacher": "向老师表达意见",
+    "more": "更多...",
+
+    "chooseInput": "选择输入方法: ",
+    "screenshot": "截图解析上下文", "copy": "复制消息至此", "call": "语音通话",
+
+    "inputHint": "与我辩论，或复制消息上下文至此"
 }

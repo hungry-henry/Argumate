@@ -23,9 +23,18 @@ class MessageLookup extends MessageLookupByLibrary {
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
         "argumate": MessageLookupByLibrary.simpleMessage("Argumate"),
+        "boss": MessageLookupByLibrary.simpleMessage("与领导沟通"),
+        "call": MessageLookupByLibrary.simpleMessage("语音通话"),
+        "chooseInput": MessageLookupByLibrary.simpleMessage("选择输入方法: "),
+        "chooseScene": MessageLookupByLibrary.simpleMessage("选择场景: "),
+        "copy": MessageLookupByLibrary.simpleMessage("复制消息至此"),
+        "debate": MessageLookupByLibrary.simpleMessage("辩论"),
+        "flirt": MessageLookupByLibrary.simpleMessage("与异性交往"),
         "help": MessageLookupByLibrary.simpleMessage("表达想法时遇到困难？无法说服对方？"),
-        "inputHint": MessageLookupByLibrary.simpleMessage("与Argumate辩论"),
-        "voice": MessageLookupByLibrary.simpleMessage("通话语言生成"),
-        "wechat": MessageLookupByLibrary.simpleMessage("微信回复生成")
+        "inputHint": MessageLookupByLibrary.simpleMessage("与我辩论，或复制消息上下文至此"),
+        "more": MessageLookupByLibrary.simpleMessage("更多..."),
+        "quarrel": MessageLookupByLibrary.simpleMessage("吵架"),
+        "screenshot": MessageLookupByLibrary.simpleMessage("截图解析上下文"),
+        "teacher": MessageLookupByLibrary.simpleMessage("向老师表达意见")
       };
 }

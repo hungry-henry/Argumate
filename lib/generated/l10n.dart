@@ -70,30 +70,120 @@ class S {
     );
   }
 
-  /// `WeChat reply generate`
-  String get wechat {
+  /// `Choose a Scene: `
+  String get chooseScene {
     return Intl.message(
-      'WeChat reply generate',
-      name: 'wechat',
+      'Choose a Scene: ',
+      name: 'chooseScene',
       desc: '',
       args: [],
     );
   }
 
-  /// `Call reply generate`
-  String get voice {
+  /// `Quarrel`
+  String get quarrel {
     return Intl.message(
-      'Call reply generate',
-      name: 'voice',
+      'Quarrel',
+      name: 'quarrel',
       desc: '',
       args: [],
     );
   }
 
-  /// `Debate with Argumate...`
+  /// `Debate`
+  String get debate {
+    return Intl.message(
+      'Debate',
+      name: 'debate',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Talk with boss`
+  String get boss {
+    return Intl.message(
+      'Talk with boss',
+      name: 'boss',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Flirt`
+  String get flirt {
+    return Intl.message(
+      'Flirt',
+      name: 'flirt',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Counter with teacher`
+  String get teacher {
+    return Intl.message(
+      'Counter with teacher',
+      name: 'teacher',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `more...`
+  String get more {
+    return Intl.message(
+      'more...',
+      name: 'more',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Choose methods to input: `
+  String get chooseInput {
+    return Intl.message(
+      'Choose methods to input: ',
+      name: 'chooseInput',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Screenshot for context`
+  String get screenshot {
+    return Intl.message(
+      'Screenshot for context',
+      name: 'screenshot',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Copy msgs to input`
+  String get copy {
+    return Intl.message(
+      'Copy msgs to input',
+      name: 'copy',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Voice call`
+  String get call {
+    return Intl.message(
+      'Voice call',
+      name: 'call',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Debate with me, or copy messages context here`
   String get inputHint {
     return Intl.message(
-      'Debate with Argumate...',
+      'Debate with me, or copy messages context here',
       name: 'inputHint',
       desc: '',
       args: [],
