@@ -54,6 +54,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _createNewConversation() {
+    //删除空白对话
+    _conversations.removeWhere((c) => c.messages.isEmpty);
+
     final newConversation = Conversation(
       id: const Uuid().v4(),
       title: '新对话 ${_conversations.length + 1}',
@@ -172,26 +175,16 @@ class _HomePageState extends State<HomePage> {
       });
 
       final response = await dio.post(
-        'https://api.siliconflow.cn/v1/chat/completions',
+        'http://api.hungryhenry.xyz/v1/chat/completions',
         options: Options(
           headers: {
-            'Authorization':
-                'Bearer sk-jrcutvtjanedrbdgqhxxmchwzouzjcqddfjidrvwpecakvec',
-            'Content-Type': 'application/json',
+            "Authorization":
+                "Bearer fa3e340c52371fb3b05c1ecbd1abdabdf53cd8d5@eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RpdmF0ZWQiOnRydWUsImFnZSI6MSwiYmFuZWQiOmZhbHNlLCJjcmVhdGVfYXQiOjE3NDM4NDU2NDksImV4cCI6MTc0Mzg0NzQ0OSwibW9kZSI6Miwib2FzaXNfaWQiOjIxOTc0OTQyMDMyODU0NjMwNCwidmVyc2lvbiI6Mn0.JENO4aEe_TizaHpVGn8WLntKrrD9CzUxyYv6Dsku6DI...eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHBfaWQiOjEwMjAwLCJkZXZpY2VfaWQiOiJmYTNlMzQwYzUyMzcxZmIzYjA1YzFlY2JkMWFiZGFiZGY1M2NkOGQ1IiwiZXhwIjoxNzQ2NDM3NjQ5LCJvYXNpc19pZCI6MjE5NzQ5NDIwMzI4NTQ2MzA0LCJvYXNpc19yX2F0IjoxNzQzODQ1NjMyLCJwbGF0Zm9ybSI6IndlYiIsInZlcnNpb24iOjN9.XhQNFoDYrVWk5cRlcXHE4Zi7A0BPN5gNX8g9BVIC-64"
           },
         ),
         data: {
-          "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+          "model": "step",
           "messages": context,
-          "stream": false,
-          "max_tokens": 512,
-          "stop": null,
-          "temperature": 0.7,
-          "top_p": 0.7,
-          "top_k": 50,
-          "frequency_penalty": 0.5,
-          "n": 1,
-          "response_format": {"type": "text"},
         },
       );
 
@@ -360,22 +353,22 @@ class _HomePageState extends State<HomePage> {
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
+                color: Theme.of(context).scaffoldBackgroundColor,
               ),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.chat_bubble_outline,
+                    Icon(
+                      Icons.chat_bubble,
                       size: 50,
-                      color: Colors.white,
+                      color: Theme.of(context).primaryColor,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       S.current.argumate,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
                         fontSize: 24,
                       ),
                     ),
@@ -546,6 +539,11 @@ class _HomePageState extends State<HomePage> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             padding: const EdgeInsets.all(16),
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? const Color(0xFFE1E0DB)
+                                    : const Color(0xFF0A1631),
                           ),
                           child: _isLoading
                               ? const CircularProgressIndicator()
@@ -589,6 +587,10 @@ class _HomePageState extends State<HomePage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Theme.of(context).brightness == Brightness.light
+            ? const Color(0xFFE1E0DB)
+            : const Color(0xFF0A1631),
       ),
     );
   }
