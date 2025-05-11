@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#CC000000"
+    android:padding="12dp">
+
+    <!-- 提示文本 -->
+    <TextView
+        android:id="@+id/floating_hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="打开聊天软件并按下按钮"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:paddingBottom="8dp"/>
+
+    <!-- 按钮容器 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- 截图按钮 -->
+        <ImageButton
+            android:id="@+id/btn_screenshot"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:background="@android:color/transparent"
+            android:contentDescription="截图"
+            android:padding="8dp"/>
+
+        <!-- 退出按钮 -->
+        <ImageButton
+            android:id="@+id/btn_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="@android:color/transparent"
+            android:contentDescription="退出"
+            android:padding="8dp"/>
+    </LinearLayout>
+</LinearLayout>

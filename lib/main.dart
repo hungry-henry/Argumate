@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:argumate/generated/l10n.dart';
 
 import './pages/home.dart';
+import './pages/login.dart';
 
 void main() {
   runApp(const MyApp());
@@ -69,6 +70,7 @@ class MyApp extends StatelessWidget {
           hintStyle: const TextStyle(color: Color(0xFFB8B7B2)),
         ));
   }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -88,10 +90,10 @@ class MyApp extends StatelessWidget {
         theme: _lightTheme(),
         darkTheme: _darkTheme(),
         themeMode: ThemeMode.system,
-        home: HomePage(),
+        home: const LoginPage(),
         routes: {
           '/home': (context) => HomePage(),
-          // '/login': (context) => const LoginPage(),
+          '/login': (context) => const LoginPage(),
         });
   }
 }

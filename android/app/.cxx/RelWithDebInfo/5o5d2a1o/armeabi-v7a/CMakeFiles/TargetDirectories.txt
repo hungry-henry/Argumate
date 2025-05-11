@@ -1,0 +1,2 @@
+D:/code/argumate/android/app/.cxx/RelWithDebInfo/5o5d2a1o/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/code/argumate/android/app/.cxx/RelWithDebInfo/5o5d2a1o/armeabi-v7a/CMakeFiles/rebuild_cache.dir

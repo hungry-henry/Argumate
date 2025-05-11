@@ -1,0 +1,2 @@
+D:/code/argumate/android/app/.cxx/Debug/142732t5/x86_64/CMakeFiles/edit_cache.dir
+D:/code/argumate/android/app/.cxx/Debug/142732t5/x86_64/CMakeFiles/rebuild_cache.dir
