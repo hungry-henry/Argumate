@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../generated/l10n.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,21 +26,13 @@ class _HomePageState extends State<HomePage> {
   List<Conversation> _conversations = [];
   Conversation? _currentConversation;
   static const int maxContextTokens = 1000;
-  static const platform = MethodChannel('floating_window');
+  final ImagePicker _picker = ImagePicker();
+  List<XFile> _selectedImages = [];
 
   @override
   void initState() {
     super.initState();
     _loadConversations();
-  }
-  
-
-  Future<void> _showFloatingWindow() async {
-    try {
-      await platform.invokeMethod('showFloatingWindow');
-    } on PlatformException catch (e) {
-      print("Failed to show floating window: '${e.message}'.");
-    }
   }
 
   Future<void> _loadConversations() async {
@@ -357,6 +351,53 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage();
+      if (images.isNotEmpty) {
+        if (images.length > 8) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('最多只能选择8张图片')),
+            );
+          }
+          return;
+        }
+        setState(() {
+          _selectedImages = images;
+        });
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BackgroundDetailsPage(
+                images: _selectedImages,
+              ),
+            ),
+          ).then((result) {
+            if (result != null) {
+              setState(() {
+                _currentConversation = _currentConversation!.copyWith(
+                  messages: [
+                    ..._currentConversation!.messages,
+                    Message(content: result['response'], isUser: false),
+                  ],
+                );
+              });
+              _saveConversations();
+            }
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('选择图片失败，请重试')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -554,11 +595,11 @@ class _HomePageState extends State<HomePage> {
                   Align(
                     alignment: Alignment.bottomRight,
                     child: Padding(
-                      padding: const EdgeInsets.only(bottom: 60.0, right: 16.0),
+                      padding: const EdgeInsets.only(bottom: 30.0, right: 16.0),
                       child: FloatingActionButton(
                         mini: true,
-                        onPressed: _showFloatingWindow,
-                        child: const Icon(Icons.screenshot),
+                        onPressed: _pickImages,
+                        child: const Icon(Icons.add_photo_alternate),
                       ),
                     ),
                   ),

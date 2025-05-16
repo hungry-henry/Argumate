@@ -13,8 +13,8 @@ const List<String> scenePrompts = [
 4. 攻守兼备：主动进攻是最好的防守。如果对方指责你，不要只是一味为自己辩解，而是主动反击，转移焦点。
 5. 适时收尾。吵架的目的不是为了争输赢，而是为了解决问题。如果发现争吵已经没有意义，可以选择优雅地结束。''',
   '''你是一个帮助用户在辩论中获得优势、赢下辩论的沟通专家。请你依据以下要点，给出用户在辩论中应该如何回应。
-1.辩论时，语言必须简洁明了，避免冗长或模糊的表述。任何论点都必须以最精准的语言表达出来，论点和语言技巧从来都是相辅相成。使用逻辑清晰的句式，例如“因为……所以……”、“如果……那么……”，让听众和评委能够迅速理解你的观点。
-2.灵活运用反驳技巧：反问法：当对手提出强而有力的论点时，可以通过反问的方式夺回主导权，要求对方正面回应相关提问 。如果对手质疑你的论点，不要急于否定，而是针对质疑的地方进行详细解释，展现你对问题的深刻理解。适当认同对方的部分观点，但随后通过补充新的角度或信息，将其转化为对自己有利的内容。例如：“我同意您的看法，但还需要考虑的是……”
+1.辩论时，语言必须简洁明了，避免冗长或模糊的表述。任何论点都必须以最精准的语言表达出来，论点和语言技巧从来都是相辅相成。使用逻辑清晰的句式，例如"因为……所以……"、"如果……那么……"，让听众和评委能够迅速理解你的观点。
+2.灵活运用反驳技巧：反问法：当对手提出强而有力的论点时，可以通过反问的方式夺回主导权，要求对方正面回应相关提问 。如果对手质疑你的论点，不要急于否定，而是针对质疑的地方进行详细解释，展现你对问题的深刻理解。适当认同对方的部分观点，但随后通过补充新的角度或信息，将其转化为对自己有利的内容。例如："我同意您的看法，但还需要考虑的是……"
 3.尝试用不同的同义词替换重复的表达，避免语言单调。
 4.不要为了辩倒对方而生硬地反驳，而是找到对方逻辑中的漏洞，巧妙地引导讨论方向。
 5.辩论不仅是技巧的比拼，也是个人素质的体现。注意仪态风度，语言文明，举止得体，避免情绪化或人身攻击 。即使面对激烈的交锋，也要保持冷静，展现出自信和从容的态度。
@@ -39,9 +39,14 @@ const List<String> scenePrompts = [
 class BackgroundDetailsPage extends StatefulWidget {
   final String? scene;
   final String? goal;
+  final List<XFile>? images;
 
-  const BackgroundDetailsPage({Key? key, this.scene, this.goal})
-      : super(key: key);
+  const BackgroundDetailsPage({
+    Key? key,
+    this.scene,
+    this.goal,
+    this.images,
+  }) : super(key: key);
 
   @override
   _BackgroundDetailsPageState createState() => _BackgroundDetailsPageState();
@@ -54,8 +59,8 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
   final _analysisController = TextEditingController();
   final _backgroundController = TextEditingController();
   final _dio = Dio();
-  File? _imageFile;
-  String? _imageName;
+  List<XFile>? _imageFiles;
+  List<String>? _imageNames;
   bool _isLoading = false;
   bool _isUploading = false;
   String _uploadStatus = '';
@@ -83,25 +88,28 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
     if (widget.goal != null) {
       _goalController.text = widget.goal!;
     }
+    if (widget.images != null) {
+      _imageFiles = widget.images;
+      _uploadImages();
+    }
   }
 
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _imageFile = File(image.path);
-        _isUploading = true;
-        _uploadStatus = '上传中...';
-      });
-      Response? uploadResponse;
+  Future<void> _uploadImages() async {
+    if (_imageFiles == null || _imageFiles!.isEmpty) return;
 
-      try {
+    setState(() {
+      _isUploading = true;
+      _uploadStatus = '上传中...';
+      _imageNames = [];
+    });
+
+    try {
+      for (var image in _imageFiles!) {
         final formData = FormData.fromMap({
-          'file': await MultipartFile.fromFile(_imageFile!.path),
+          'file': await MultipartFile.fromFile(image.path),
         });
 
-        uploadResponse = await _dio.post(
+        final uploadResponse = await _dio.post(
           'http://hungryhenry.xyz/api/image_upload.php',
           data: formData,
           options: Options(
@@ -112,86 +120,69 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
         );
 
         if (uploadResponse.statusCode == 200) {
-          setState(() {
-            _uploadStatus = '解析图片中...';
-            _imageName = jsonDecode(uploadResponse!.data)['filename'];
-          });
-          print(_imageName);
-          Response? analysisResponse;
-
-          try {
-            analysisResponse = await _dio
-                .post('http://api.hungryhenry.xyz/v1/chat/completions',
-                    options: Options(
-                      headers: {
-                        "Authorization":
-                            "Bearer fa3e340c52371fb3b05c1ecbd1abdabdf53cd8d5@eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RpdmF0ZWQiOnRydWUsImFnZSI6MSwiYmFuZWQiOmZhbHNlLCJjcmVhdGVfYXQiOjE3NDM4NDU2NDksImV4cCI6MTc0Mzg0NzQ0OSwibW9kZSI6Miwib2FzaXNfaWQiOjIxOTc0OTQyMDMyODU0NjMwNCwidmVyc2lvbiI6Mn0.JENO4aEe_TizaHpVGn8WLntKrrD9CzUxyYv6Dsku6DI...eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHBfaWQiOjEwMjAwLCJkZXZpY2VfaWQiOiJmYTNlMzQwYzUyMzcxZmIzYjA1YzFlY2JkMWFiZGFiZGY1M2NkOGQ1IiwiZXhwIjoxNzQ2NDM3NjQ5LCJvYXNpc19pZCI6MjE5NzQ5NDIwMzI4NTQ2MzA0LCJvYXNpc19yX2F0IjoxNzQzODQ1NjMyLCJwbGF0Zm9ybSI6IndlYiIsInZlcnNpb24iOjN9.XhQNFoDYrVWk5cRlcXHE4Zi7A0BPN5gNX8g9BVIC-64"
-                      },
-                    ),
-                    data: {
-                  "model": "step",
-                  "messages": [
-                    {
-                      "role": "user",
-                      "content": [
-                        {
-                          "type": "image_url",
-                          "image_url": {
-                            "url": "http://hungryhenry.xyz/uploads/$_imageName"
-                          }
-                        },
-                        {
-                          "type": "text",
-                          "text":
-                              "这是一个聊天软件中的截图。如果顶部有括号与数字，则这是一个群聊，括号中的数字代表群聊中的成员数量；如果顶部没有括号与数字，则这是私聊，且顶部的文字是私聊对象的昵称。右侧全部是我的发言，左侧是其他人的发言（如果是群聊，头像上方会有昵称。如果是私聊，截图顶部会显示对方的昵称）。请先按时间顺序（从上至下）告诉我原文，不要概括我们说了什么；然后告诉我你获得的信息（好友/群聊名称、聊天人数、聊天时间、语气态度等）"
-                        }
-                      ]
-                    }
-                  ],
-                  "stream": false
-                });
-
-            if (analysisResponse.statusCode == 200) {
-              setState(() {
-                _uploadStatus = '解析成功';
-                _isUploading = false;
-                _imageText =
-                    analysisResponse!.data['choices'][0]['message']['content'];
-              });
-              _analysisController.text = _imageText!;
-            } else {
-              throw Exception('Analysis failed');
-            }
-          } catch (e) {
-            print(analysisResponse != null ? analysisResponse.data : e);
-            setState(() {
-              _uploadStatus = '解析失败';
-              _isUploading = false;
-              _imageFile = null;
-              _imageName = null;
-            });
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('图片解析失败，请重试')),
-              );
-            }
-          }
+          _imageNames!.add(jsonDecode(uploadResponse.data)['filename']);
         } else {
           throw Exception('Upload failed');
         }
-      } catch (e) {
-        print(uploadResponse != null ? uploadResponse.data : e);
-        setState(() {
-          _uploadStatus = '上传失败';
-          _isUploading = false;
-          _imageFile = null;
-          _imageName = null;
+      }
+
+      setState(() {
+        _uploadStatus = '解析图片中...';
+      });
+
+      // Analyze all images
+      final List<Map<String, dynamic>> messages = [];
+      for (var imageName in _imageNames!) {
+        messages.add({
+          "type": "image_url",
+          "image_url": {"url": "http://hungryhenry.xyz/uploads/$imageName"}
         });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('图片上传失败，请重试')),
-          );
-        }
+      }
+      messages.add({
+        "type": "text",
+        "text":
+            "这是一个聊天软件中的截图。如果顶部有括号与数字，则这是一个群聊，括号中的数字代表群聊中的成员数量；如果顶部没有括号与数字，则这是私聊，且顶部的文字是私聊对象的昵称。右侧全部是我的发言，左侧是其他人的发言（如果是群聊，头像上方会有昵称。如果是私聊，截图顶部会显示对方的昵称）。请先按时间顺序（从上至下）告诉我原文，不要概括我们说了什么；然后告诉我你获得的信息（好友/群聊名称、聊天人数、聊天时间、语气态度等）"
+      });
+
+      final analysisResponse = await _dio.post(
+        'http://api.hungryhenry.xyz/v1/chat/completions',
+        options: Options(
+          headers: {
+            "Authorization":
+                "Bearer fa3e340c52371fb3b05c1ecbd1abdabdf53cd8d5@eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RpdmF0ZWQiOnRydWUsImFnZSI6MSwiYmFuZWQiOmZhbHNlLCJjcmVhdGVfYXQiOjE3NDM4NDU2NDksImV4cCI6MTc0Mzg0NzQ0OSwibW9kZSI6Miwib2FzaXNfaWQiOjIxOTc0OTQyMDMyODU0NjMwNCwidmVyc2lvbiI6Mn0.JENO4aEe_TizaHpVGn8WLntKrrD9CzUxyYv6Dsku6DI...eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHBfaWQiOjEwMjAwLCJkZXZpY2VfaWQiOiJmYTNlMzQwYzUyMzcxZmIzYjA1YzFlY2JkMWFiZGFiZGY1M2NkOGQ1IiwiZXhwIjoxNzQ2NDM3NjQ5LCJvYXNpc19pZCI6MjE5NzQ5NDIwMzI4NTQ2MzA0LCJvYXNpc19yX2F0IjoxNzQzODQ1NjMyLCJwbGF0Zm9ybSI6IndlYiIsInZlcnNpb24iOjN9.XhQNFoDYrVWk5cRlcXHE4Zi7A0BPN5gNX8g9BVIC-64"
+          },
+        ),
+        data: {
+          "model": "step",
+          "messages": [
+            {"role": "user", "content": messages}
+          ],
+          "stream": false
+        },
+      );
+
+      if (analysisResponse.statusCode == 200) {
+        setState(() {
+          _uploadStatus = '解析成功';
+          _isUploading = false;
+          _imageText =
+              analysisResponse.data['choices'][0]['message']['content'];
+        });
+        _analysisController.text = _imageText!;
+      } else {
+        throw Exception('Analysis failed');
+      }
+    } catch (e) {
+      print(e);
+      _uploadStatus = '解析失败';
+      _isUploading = false;
+      _imageFiles = null;
+      _imageNames = null;
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('图片解析失败，请重试')),
+        );
       }
     }
   }
@@ -326,31 +317,32 @@ ${_analysisController.text.isNotEmpty ? '消息：${_analysisController.text}' :
                 ),
               ),
               const Divider(height: 30),
-              if (!_isUploading && _uploadStatus != "解析成功") ...[
-                ElevatedButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(Icons.image),
-                  label: const Text('选择聊天图片'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
-                  ),
-                ),
-              ],
-              if (_imageFile != null && _uploadStatus != "上传失败") ...[
+              if (_imageFiles != null && _uploadStatus != "上传失败") ...[
                 const SizedBox(height: 8),
-                Container(
+                SizedBox(
                   height: 100,
-                  width: 100,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      _imageFile!,
-                      fit: BoxFit.cover,
-                    ),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _imageFiles!.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: Container(
+                          width: 100,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_imageFiles![index].path),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 if (_isUploading) ...[

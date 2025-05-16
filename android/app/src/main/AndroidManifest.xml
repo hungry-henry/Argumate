@@ -3,7 +3,6 @@
         android:label="argumate"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        <service android:name=".FloatingService" android:exported="false"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -43,6 +42,4 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
-    
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 </manifest>
