@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:wechat_assets_picker/wechat_assets_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 const List<String> scenePrompts = [
   '''你是一个帮助用户在吵架中获得优势、达到用户目标的沟通专家。请你依据以下要点，给出用户在吵架中应该如何回应。
@@ -187,6 +189,67 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
     }
   }
 
+  Future<bool> _requestPermissions() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.photos.request();
+      if (status.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('需要相册权限才能选择图片')),
+          );
+        }
+        return false;
+      }
+    } else if (Platform.isIOS) {
+      final status = await Permission.photos.request();
+      if (status.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('需要相册权限才能选择图片')),
+          );
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _pickImages() async {
+    final hasPermission = await _requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      final List<AssetEntity>? assets = await AssetPicker.pickAssets(
+        context,
+        pickerConfig: const AssetPickerConfig(
+          maxAssets: 1,
+          requestType: RequestType.image,
+          selectedAssets: [],
+        ),
+      );
+      if (assets != null && assets.isNotEmpty) {
+        List<XFile> images = [];
+        for (var asset in assets) {
+          final file = await asset.file;
+          if (file != null) {
+            images.add(XFile(file.path));
+          }
+        }
+        setState(() {
+          _imageFiles = images;
+        });
+        _uploadImages();
+      }
+    } catch (e) {
+      print(e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('选择图片失败，请重试')),
+        );
+      }
+    }
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -317,8 +380,18 @@ ${_analysisController.text.isNotEmpty ? '消息：${_analysisController.text}' :
                 ),
               ),
               const Divider(height: 30),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add_photo_alternate),
+                label: const Text('选择图片（最多8张）'),
+                onPressed: _pickImages,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
               if (_imageFiles != null && _uploadStatus != "上传失败") ...[
-                const SizedBox(height: 8),
                 SizedBox(
                   height: 100,
                   child: ListView.builder(

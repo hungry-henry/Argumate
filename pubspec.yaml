@@ -43,6 +43,9 @@ dependencies:
   uuid: ^4.3.3
   image_picker: ^1.0.7
   package_info_plus: ^5.0.1
+  wechat_assets_picker: ^8.6.0
+  photo_manager: ^3.0.0
+  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:

@@ -1,9 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../generated/l10n.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,13 +10,16 @@ import 'package:uuid/uuid.dart';
 import '../models/message.dart';
 import '../models/conversation.dart';
 import 'background_details.dart';
+import 'package:wechat_assets_picker/wechat_assets_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
 
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final controller = TextEditingController();
   final dio = Dio();
   bool _isLoading = false;
@@ -26,13 +27,175 @@ class _HomePageState extends State<HomePage> {
   List<Conversation> _conversations = [];
   Conversation? _currentConversation;
   static const int maxContextTokens = 1000;
-  final ImagePicker _picker = ImagePicker();
   List<XFile> _selectedImages = [];
+  AssetEntity? _latestPhoto;
+  DateTime? _latestPhotoTime;
+  bool _isMonitoringPhotos = false;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _loadConversations();
+    _startPhotoMonitoring();
+    WidgetsBinding.instance.addObserver(this);
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _stopPhotoMonitoring();
+    WidgetsBinding.instance.removeObserver(this);
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus) {
+      _updateLatestPhoto();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _updateLatestPhoto();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateLatestPhoto();
+  }
+
+  Future<void> _startPhotoMonitoring() async {
+    if (_isMonitoringPhotos) return;
+
+    final hasPermission = await _requestPermissions();
+    if (!hasPermission) return;
+
+    setState(() {
+      _isMonitoringPhotos = true;
+    });
+
+    // 获取最新照片
+    await _updateLatestPhoto();
+
+    // 监听相册变化
+    PhotoManager.addChangeCallback(_onPhotoChange);
+    PhotoManager.startChangeNotify();
+  }
+
+  Future<void> _stopPhotoMonitoring() async {
+    if (!_isMonitoringPhotos) return;
+
+    PhotoManager.removeChangeCallback(_onPhotoChange);
+    PhotoManager.stopChangeNotify();
+
+    setState(() {
+      _isMonitoringPhotos = false;
+    });
+  }
+
+  Future<bool> _requestPermissions() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.photos.request();
+      if (status.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('需要相册权限才能访问照片')),
+          );
+        }
+        return false;
+      }
+    } else if (Platform.isIOS) {
+      final status = await Permission.photos.request();
+      if (status.isDenied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('需要相册权限才能访问照片')),
+          );
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _updateLatestPhoto() async {
+    try {
+      final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
+        type: RequestType.image,
+        filterOption: FilterOptionGroup(
+          orders: [OrderOption(type: OrderOptionType.createDate, asc: false)],
+        ),
+      );
+
+      if (albums.isNotEmpty) {
+        final List<AssetEntity> photos = await albums[0].getAssetListPaged(
+          page: 0,
+          size: 1,
+        );
+
+        if (photos.isNotEmpty) {
+          final photo = photos[0];
+          final createTime = await photo.createDateTime;
+
+          setState(() {
+            _latestPhoto = photo;
+            _latestPhotoTime = createTime;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error getting latest photo: $e');
+    }
+  }
+
+  void _onPhotoChange(dynamic notification) async {
+    await _updateLatestPhoto();
+  }
+
+  Future<void> _handleLatestPhotoTap() async {
+    if (_latestPhoto == null) return;
+
+    final file = await _latestPhoto!.file;
+    if (file == null) return;
+
+    final now = DateTime.now();
+    if (_latestPhotoTime == null ||
+        now.difference(_latestPhotoTime!).inMinutes > 1) {
+      return;
+    }
+
+    setState(() {
+      _selectedImages = [XFile(file.path)];
+    });
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BackgroundDetailsPage(
+            images: _selectedImages,
+          ),
+        ),
+      ).then((result) {
+        if (result != null) {
+          setState(() {
+            _currentConversation = _currentConversation!.copyWith(
+              messages: [
+                ..._currentConversation!.messages,
+                Message(content: result['response'], isUser: false),
+              ],
+            );
+          });
+          _saveConversations();
+        }
+      });
+    }
   }
 
   Future<void> _loadConversations() async {
@@ -351,310 +514,316 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _pickImages() async {
-    try {
-      final List<XFile> images = await _picker.pickMultiImage();
-      if (images.isNotEmpty) {
-        if (images.length > 8) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('最多只能选择8张图片')),
-            );
-          }
-          return;
-        }
-        setState(() {
-          _selectedImages = images;
-        });
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BackgroundDetailsPage(
-                images: _selectedImages,
-              ),
-            ),
-          ).then((result) {
-            if (result != null) {
-              setState(() {
-                _currentConversation = _currentConversation!.copyWith(
-                  messages: [
-                    ..._currentConversation!.messages,
-                    Message(content: result['response'], isUser: false),
-                  ],
-                );
-              });
-              _saveConversations();
-            }
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('选择图片失败，请重试')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(builder: (BuildContext context) {
-          return IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
-          );
-        }),
-        title: Text(_currentConversation?.title ?? S.current.argumate),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BackgroundDetailsPage(),
-                ),
-              ).then((result) {
-                if (result != null) {
-                  setState(() {
-                    _currentConversation = _currentConversation!.copyWith(
-                      messages: [
-                        ..._currentConversation!.messages,
-                        Message(content: result['response'], isUser: false),
-                      ],
-                    );
-                  });
-                  _saveConversations();
-                }
-              });
-            },
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: Column(
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.chat_bubble,
-                      size: 50,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      S.current.argumate,
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontSize: 24,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('新建对话'),
-              onTap: () {
-                _createNewConversation();
-                Navigator.pop(context);
+    return Focus(
+      focusNode: _focusNode,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: Builder(builder: (BuildContext context) {
+            return IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
               },
-            ),
-            const Divider(),
-            Expanded(
-              child: ListView.builder(
-                itemCount: max(
-                    _conversations.where((c) => c.messages.isNotEmpty).length,
-                    1),
-                itemBuilder: (context, index) {
-                  if (_conversations
-                      .where((c) => c.messages.isNotEmpty)
-                      .isEmpty) {
-                    return const Center(child: Text('没有对话'));
-                  } else {
-                    final conversation = _conversations
-                        .where((c) => c.messages.isNotEmpty)
-                        .toList()[index];
-                    final isSelected =
-                        conversation.id == _currentConversation?.id;
-                    return GestureDetector(
-                      onLongPress: () => _showOptions(conversation),
-                      onSecondaryTap: () => _showOptions(conversation),
-                      child: ListTile(
-                        leading: const Icon(Icons.chat),
-                        title: Text(conversation.title),
-                        subtitle: Text(
-                          '${conversation.messages.length ~/ 2} 条消息',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        selected: isSelected,
-                        onTap: () => _switchConversation(conversation),
-                      ),
-                    );
+            );
+          }),
+          title: Text(_currentConversation?.title ?? S.current.argumate),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const BackgroundDetailsPage(),
+                  ),
+                ).then((result) {
+                  if (result != null) {
+                    setState(() {
+                      _currentConversation = _currentConversation!.copyWith(
+                        messages: [
+                          ..._currentConversation!.messages,
+                          Message(content: result['response'], isUser: false),
+                        ],
+                      );
+                    });
+                    _saveConversations();
                   }
-                },
-              ),
+                });
+              },
             ),
           ],
         ),
-      ),
-      body: _currentConversation == null
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: _currentConversation!.messages.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 32.0),
-                                  child: Text(
-                                    '帮助您更有效地沟通、劝说、辩论...',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineMedium,
-                                    textAlign: TextAlign.center,
+        drawer: Drawer(
+          child: Column(
+            children: [
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.chat_bubble,
+                        size: 50,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        S.current.argumate,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontSize: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('新建对话'),
+                onTap: () {
+                  _createNewConversation();
+                  Navigator.pop(context);
+                },
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: max(
+                      _conversations.where((c) => c.messages.isNotEmpty).length,
+                      1),
+                  itemBuilder: (context, index) {
+                    if (_conversations
+                        .where((c) => c.messages.isNotEmpty)
+                        .isEmpty) {
+                      return const Center(child: Text('没有对话'));
+                    } else {
+                      final conversation = _conversations
+                          .where((c) => c.messages.isNotEmpty)
+                          .toList()[index];
+                      final isSelected =
+                          conversation.id == _currentConversation?.id;
+                      return GestureDetector(
+                        onLongPress: () => _showOptions(conversation),
+                        onSecondaryTap: () => _showOptions(conversation),
+                        child: ListTile(
+                          leading: const Icon(Icons.chat),
+                          title: Text(conversation.title),
+                          subtitle: Text(
+                            '${conversation.messages.length ~/ 2} 条消息',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          selected: isSelected,
+                          onTap: () => _switchConversation(conversation),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        body: _currentConversation == null
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: _currentConversation!.messages.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 32.0),
+                                    child: Text(
+                                      '帮助您更有效地沟通、劝说、辩论...',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineMedium,
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 40),
-                                Wrap(
-                                  spacing: 16,
-                                  runSpacing: 16,
-                                  alignment: WrapAlignment.center,
-                                  children: [
-                                    _buildSceneButton(
-                                        context, '争吵', Icons.warning),
-                                    _buildSceneButton(
-                                        context, '辩论', Icons.people),
-                                    _buildSceneButton(
-                                        context, '商业饭局', Icons.business),
-                                    _buildSceneButton(
-                                        context, '说服某人', Icons.person),
-                                    _buildSceneButton(
-                                        context, '解释某事', Icons.info),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _currentConversation!.messages.length,
-                            itemBuilder: (context, index) {
-                              final message =
-                                  _currentConversation!.messages[index];
-                              return Align(
-                                alignment: message.isUser
-                                    ? Alignment.centerRight
-                                    : Alignment.centerLeft,
-                                child: Container(
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 4),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
+                                  const SizedBox(height: 40),
+                                  Wrap(
+                                    spacing: 16,
+                                    runSpacing: 16,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      _buildSceneButton(
+                                          context, '争吵', Icons.warning),
+                                      _buildSceneButton(
+                                          context, '辩论', Icons.people),
+                                      _buildSceneButton(
+                                          context, '商业饭局', Icons.business),
+                                      _buildSceneButton(
+                                          context, '说服某人', Icons.person),
+                                      _buildSceneButton(
+                                          context, '解释某事', Icons.info),
+                                    ],
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: message.isUser
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    message.content,
-                                    style: TextStyle(
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _currentConversation!.messages.length,
+                              itemBuilder: (context, index) {
+                                final message =
+                                    _currentConversation!.messages[index];
+                                return Align(
+                                  alignment: message.isUser
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                                  child: Container(
+                                    margin:
+                                        const EdgeInsets.symmetric(vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
                                       color: message.isUser
-                                          ? Colors.white
-                                          : Colors.black,
+                                          ? Theme.of(context).primaryColor
+                                          : Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      message.content,
+                                      style: TextStyle(
+                                        color: message.isUser
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    if (_latestPhoto != null &&
+                        _latestPhotoTime != null &&
+                        DateTime.now()
+                                .difference(_latestPhotoTime!)
+                                .inMinutes <=
+                            1) ...[
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: 30.0, right: 20.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '最近图片',
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.color,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              GestureDetector(
+                                onTap: _handleLatestPhotoTap,
+                                child: Container(
+                                  width: 80,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            Colors.black.withValues(alpha: 0.2),
+                                        spreadRadius: 1,
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: AssetEntityImage(
+                                      _latestPhoto!,
+                                      isOriginal: false,
+                                      thumbnailSize:
+                                          const ThumbnailSize(80, 120),
+                                      thumbnailFormat: ThumbnailFormat.jpeg,
+                                      fit: BoxFit.cover,
                                     ),
                                   ),
                                 ),
-                              );
-                            },
+                              ),
+                            ],
                           ),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 30.0, right: 16.0),
-                      child: FloatingActionButton(
-                        mini: true,
-                        onPressed: _pickImages,
-                        child: const Icon(Icons.add_photo_alternate),
+                        ),
                       ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            autofocus: false,
-                            controller: controller,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            minLines: 1,
-                            maxLines: 3,
-                            onSubmitted: (value) {
-                              if (value.isNotEmpty) {
-                                _sendRequest(value);
+                    ],
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              autofocus: false,
+                              controller: controller,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                              minLines: 1,
+                              maxLines: 3,
+                              onSubmitted: (value) {
+                                if (value.isNotEmpty) {
+                                  _sendRequest(value);
+                                  controller.clear();
+                                }
+                              },
+                              decoration: InputDecoration(
+                                hintText: S.current.inputHint,
+                                hintStyle:
+                                    Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () {
+                              if (controller.text.isNotEmpty) {
+                                _sendRequest(controller.text);
                                 controller.clear();
                               }
                             },
-                            decoration: InputDecoration(
-                              hintText: S.current.inputHint,
-                              hintStyle: Theme.of(context).textTheme.bodyMedium,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              backgroundColor: Theme.of(context).primaryColor,
+                              foregroundColor: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? const Color(0xFFE1E0DB)
+                                  : const Color(0xFF0A1631),
                             ),
+                            child: _isLoading
+                                ? const CircularProgressIndicator()
+                                : const Icon(Icons.send),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            if (controller.text.isNotEmpty) {
-                              _sendRequest(controller.text);
-                              controller.clear();
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.all(16),
-                            backgroundColor: Theme.of(context).primaryColor,
-                            foregroundColor:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? const Color(0xFFE1E0DB)
-                                    : const Color(0xFF0A1631),
-                          ),
-                          child: _isLoading
-                              ? const CircularProgressIndicator()
-                              : const Icon(Icons.send),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }
