@@ -1,16 +1,73 @@
-# argumate
+# AI沟通助手（弃坑 | 半成品）
 
-A new Flutter project.
+> 🚧 **本项目已停止开发，目前为半成品，留档备查。**
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🧠 项目简介
 
-A few resources to get you started if this is your first Flutter project:
+一个基于 AI 的 **沟通协助 & 训练** 软件，旨在帮助用户在聊天或争吵中更有效地表达自己，长期目标是提升用户在高情绪、高冲突场景下的社交能力。
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📱 平台支持
+
+- ✅ Android
+- ✅ iOS
+
+---
+
+## 🛠 技术栈
+
+- **前端框架**：Flutter
+- **AI模型接口**：[step-free-api](https://github.com/LLM-Red-Team/step-free-api)
+- **后端**：PHP（部分已实现）
+
+---
+
+## 📌 当前进度
+
+- [x] 基础聊天界面
+- [x] 调用step-free-api接口生成回复
+- [x] 聊天截图上传与解析
+- [ ] 多轮模拟对话训练
+- [ ] 用户沟通能力评分与成长路径
+- [ ] 情境选择与角色扮演
+
+---
+
+## ❓ 弃坑原因
+
+- 与现有AI助手（如Expolore GPT、豆包AI智能体）重合度高，需寻找更具差异化的实现方式
+- 资本与精力有限，api key有些贵
+
+---
+
+## 📁 项目运行说明
+
+1. 克隆本仓库：
+   ```bash
+   git clone https://github.com/hungry-henry/Argumate.git
+   ```
+
+2. 安装依赖：
+   ```bash
+   flutter pub get
+   ```
+
+3. 运行模拟器或真机：
+   ```bash
+   flutter run
+   ```
+
+---
+
+## 📜 许可证
+
+MIT License - 你可以自由使用、修改本项目，但请注明出处。
+
+---
+
+## 🙇 致谢
+
+感谢所有尝试构建 AI 有效沟通工具的先行者，希望未来能以更成熟的方案重启本项目。

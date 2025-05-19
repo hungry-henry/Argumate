@@ -13,6 +13,7 @@ import 'background_details.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   @override
@@ -32,6 +33,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   DateTime? _latestPhotoTime;
   bool _isMonitoringPhotos = false;
   final FocusNode _focusNode = FocusNode();
+  bool _showLatestPhoto = false;
+  Timer? _dismissTimer;
+  double _dragOffset = 0;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -44,6 +49,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _dismissTimer?.cancel();
     _stopPhotoMonitoring();
     WidgetsBinding.instance.removeObserver(this);
     _focusNode.removeListener(_onFocusChange);
@@ -124,6 +130,47 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return true;
   }
 
+  void _startDismissTimer() {
+    _dismissTimer?.cancel();
+    _dismissTimer = Timer(const Duration(seconds: 15), () {
+      if (mounted) {
+        setState(() {
+          _showLatestPhoto = false;
+        });
+      }
+    });
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    _isDragging = true;
+    _dismissTimer?.cancel();
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (_isDragging) {
+      setState(() {
+        _dragOffset += details.delta.dy;
+        if (_dragOffset < 0) {
+          _dragOffset = 0;
+        }
+      });
+    }
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    _isDragging = false;
+    if (_dragOffset > 50) {
+      setState(() {
+        _showLatestPhoto = false;
+      });
+    } else {
+      setState(() {
+        _dragOffset = 0;
+      });
+      _startDismissTimer();
+    }
+  }
+
   Future<void> _updateLatestPhoto() async {
     try {
       final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
@@ -142,11 +189,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (photos.isNotEmpty) {
           final photo = photos[0];
           final createTime = await photo.createDateTime;
+          final now = DateTime.now();
 
-          setState(() {
-            _latestPhoto = photo;
-            _latestPhotoTime = createTime;
-          });
+          if (now.difference(createTime).inMinutes <= 1) {
+            setState(() {
+              _latestPhoto = photo;
+              _latestPhotoTime = createTime;
+              _showLatestPhoto = true;
+              _dragOffset = 0;
+            });
+            _startDismissTimer();
+          } else {
+            setState(() {
+              _showLatestPhoto = false;
+              _dragOffset = 0;
+            });
+          }
         }
       }
     } catch (e) {
@@ -175,26 +233,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     if (mounted) {
-      Navigator.push(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => BackgroundDetailsPage(
             images: _selectedImages,
           ),
         ),
-      ).then((result) {
-        if (result != null) {
-          setState(() {
-            _currentConversation = _currentConversation!.copyWith(
-              messages: [
-                ..._currentConversation!.messages,
-                Message(content: result['response'], isUser: false),
-              ],
-            );
-          });
-          _saveConversations();
-        }
-      });
+      );
+
+      if (result != null) {
+        setState(() {
+          _currentConversation = _currentConversation!.copyWith(
+            messages: [
+              ..._currentConversation!.messages,
+              Message(content: result['response'], isUser: false),
+            ],
+          );
+        });
+        _saveConversations();
+      }
     }
   }
 
@@ -629,200 +687,203 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ],
           ),
         ),
-        body: _currentConversation == null
-            ? const Center(child: CircularProgressIndicator())
-            : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: _currentConversation!.messages.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 32.0),
-                                    child: Text(
-                                      '帮助您更有效地沟通、劝说、辩论...',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineMedium,
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 40),
-                                  Wrap(
-                                    spacing: 16,
-                                    runSpacing: 16,
-                                    alignment: WrapAlignment.center,
+        body: Stack(
+          children: [
+            _currentConversation == null
+                ? const Center(child: CircularProgressIndicator())
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: _currentConversation!.messages.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      _buildSceneButton(
-                                          context, '争吵', Icons.warning),
-                                      _buildSceneButton(
-                                          context, '辩论', Icons.people),
-                                      _buildSceneButton(
-                                          context, '商业饭局', Icons.business),
-                                      _buildSceneButton(
-                                          context, '说服某人', Icons.person),
-                                      _buildSceneButton(
-                                          context, '解释某事', Icons.info),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 32.0),
+                                        child: Text(
+                                          '帮助您更有效地沟通、劝说、辩论...',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .headlineMedium,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 40),
+                                      Wrap(
+                                        spacing: 16,
+                                        runSpacing: 16,
+                                        alignment: WrapAlignment.center,
+                                        children: [
+                                          _buildSceneButton(
+                                              context, '争吵', Icons.warning),
+                                          _buildSceneButton(
+                                              context, '辩论', Icons.people),
+                                          _buildSceneButton(
+                                              context, '商业饭局', Icons.business),
+                                          _buildSceneButton(
+                                              context, '说服某人', Icons.person),
+                                          _buildSceneButton(
+                                              context, '解释某事', Icons.info),
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                ],
-                              ),
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(16),
-                              itemCount: _currentConversation!.messages.length,
-                              itemBuilder: (context, index) {
-                                final message =
-                                    _currentConversation!.messages[index];
-                                return Align(
-                                  alignment: message.isUser
-                                      ? Alignment.centerRight
-                                      : Alignment.centerLeft,
-                                  child: Container(
-                                    margin:
-                                        const EdgeInsets.symmetric(vertical: 4),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: message.isUser
-                                          ? Theme.of(context).primaryColor
-                                          : Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      message.content,
-                                      style: TextStyle(
-                                        color: message.isUser
-                                            ? Colors.white
-                                            : Colors.black,
+                                )
+                              : ListView.builder(
+                                  controller: _scrollController,
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount:
+                                      _currentConversation!.messages.length,
+                                  itemBuilder: (context, index) {
+                                    final message =
+                                        _currentConversation!.messages[index];
+                                    return Align(
+                                      alignment: message.isUser
+                                          ? Alignment.centerRight
+                                          : Alignment.centerLeft,
+                                      child: Container(
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: message.isUser
+                                              ? Theme.of(context).primaryColor
+                                              : Colors.grey[200],
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          message.content,
+                                          style: TextStyle(
+                                            color: message.isUser
+                                                ? Colors.white
+                                                : Colors.black,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                    if (_latestPhoto != null &&
-                        _latestPhotoTime != null &&
-                        DateTime.now()
-                                .difference(_latestPhotoTime!)
-                                .inMinutes <=
-                            1) ...[
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: 30.0, right: 20.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                                    );
+                                  },
+                                ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
                             children: [
-                              Text(
-                                '最近图片',
-                                style: TextStyle(
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.color,
-                                  fontSize: 12,
+                              Expanded(
+                                child: TextField(
+                                  autofocus: false,
+                                  controller: controller,
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                  minLines: 1,
+                                  maxLines: 3,
+                                  onSubmitted: (value) {
+                                    if (value.isNotEmpty) {
+                                      _sendRequest(value);
+                                      controller.clear();
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: S.current.inputHint,
+                                    hintStyle:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              GestureDetector(
-                                onTap: _handleLatestPhotoTap,
-                                child: Container(
-                                  width: 80,
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.2),
-                                        spreadRadius: 1,
-                                        blurRadius: 3,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                              const SizedBox(width: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  if (controller.text.isNotEmpty) {
+                                    _sendRequest(controller.text);
+                                    controller.clear();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: AssetEntityImage(
-                                      _latestPhoto!,
-                                      isOriginal: false,
-                                      thumbnailSize:
-                                          const ThumbnailSize(80, 120),
-                                      thumbnailFormat: ThumbnailFormat.jpeg,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
+                                  padding: const EdgeInsets.all(16),
+                                  backgroundColor:
+                                      Theme.of(context).primaryColor,
+                                  foregroundColor:
+                                      Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? const Color(0xFFE1E0DB)
+                                          : const Color(0xFF0A1631),
                                 ),
+                                child: _isLoading
+                                    ? const CircularProgressIndicator()
+                                    : const Icon(Icons.send),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              autofocus: false,
-                              controller: controller,
-                              style: Theme.of(context).textTheme.bodyLarge,
-                              minLines: 1,
-                              maxLines: 3,
-                              onSubmitted: (value) {
-                                if (value.isNotEmpty) {
-                                  _sendRequest(value);
-                                  controller.clear();
-                                }
-                              },
-                              decoration: InputDecoration(
-                                hintText: S.current.inputHint,
-                                hintStyle:
-                                    Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onPressed: () {
-                              if (controller.text.isNotEmpty) {
-                                _sendRequest(controller.text);
-                                controller.clear();
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              padding: const EdgeInsets.all(16),
-                              backgroundColor: Theme.of(context).primaryColor,
-                              foregroundColor: Theme.of(context).brightness ==
-                                      Brightness.light
-                                  ? const Color(0xFFE1E0DB)
-                                  : const Color(0xFF0A1631),
-                            ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator()
-                                : const Icon(Icons.send),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
+            if (_latestPhoto != null && _latestPhotoTime != null)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOut,
+                right: 20,
+                bottom: _showLatestPhoto ? 80 : -200,
+                child: GestureDetector(
+                  onTap: _handleLatestPhotoTap,
+                  onVerticalDragStart: _handleDragStart,
+                  onVerticalDragUpdate: _handleDragUpdate,
+                  onVerticalDragEnd: _handleDragEnd,
+                  child: Transform.translate(
+                    offset: Offset(0, _dragOffset),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '最近图片',
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).textTheme.bodyMedium?.color,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                spreadRadius: 0,
+                                blurRadius: 4,
+                                offset: const Offset(0, 0),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: AssetEntityImage(
+                              _latestPhoto!,
+                              isOriginal: false,
+                              thumbnailSize: const ThumbnailSize(160, 240),
+                              thumbnailFormat: ThumbnailFormat.jpeg,
+                              fit: BoxFit.cover,
+                              width: 80,
+                              height: 120,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+          ],
+        ),
       ),
     );
   }

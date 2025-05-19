@@ -61,6 +61,7 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
   final _analysisController = TextEditingController();
   final _backgroundController = TextEditingController();
   final _dio = Dio();
+  CancelToken? _cancelToken;
   List<XFile>? _imageFiles;
   List<String>? _imageNames;
   bool _isLoading = false;
@@ -83,6 +84,7 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
   @override
   void initState() {
     super.initState();
+    _cancelToken = CancelToken();
     if (widget.scene != null) {
       _selectedScene = widget.scene!;
       _sceneController.text = widget.scene!;
@@ -107,6 +109,11 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
 
     try {
       for (var image in _imageFiles!) {
+        if (!mounted) {
+          _cancelToken?.cancel('Page disposed');
+          return;
+        }
+
         final formData = FormData.fromMap({
           'file': await MultipartFile.fromFile(image.path),
         });
@@ -119,13 +126,24 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
               'User-Agent': 'argumate',
             },
           ),
+          cancelToken: _cancelToken,
         );
+
+        if (!mounted) {
+          _cancelToken?.cancel('Page disposed');
+          return;
+        }
 
         if (uploadResponse.statusCode == 200) {
           _imageNames!.add(jsonDecode(uploadResponse.data)['filename']);
         } else {
           throw Exception('Upload failed');
         }
+      }
+
+      if (!mounted) {
+        _cancelToken?.cancel('Page disposed');
+        return;
       }
 
       setState(() {
@@ -143,7 +161,7 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
       messages.add({
         "type": "text",
         "text":
-            "这是一个聊天软件中的截图。如果顶部有括号与数字，则这是一个群聊，括号中的数字代表群聊中的成员数量；如果顶部没有括号与数字，则这是私聊，且顶部的文字是私聊对象的昵称。右侧全部是我的发言，左侧是其他人的发言（如果是群聊，头像上方会有昵称。如果是私聊，截图顶部会显示对方的昵称）。请先按时间顺序（从上至下）告诉我原文，不要概括我们说了什么；然后告诉我你获得的信息（好友/群聊名称、聊天人数、聊天时间、语气态度等）"
+            "这是聊天软件中的一组或多组对话截图。如果顶部有括号与数字，则这是一个群聊，括号中的数字代表群聊中的成员数量；如果顶部没有括号与数字，则这是私聊，且顶部的文字是私聊对象的昵称。右侧全部是我的发言，左侧是其他人的发言（如果是群聊，头像上方会有昵称。如果是私聊，截图顶部会显示对方的昵称）。请先按时间顺序（从上至下）告诉我原文，不要概括我们说了什么；然后告诉我你获得的信息（好友/群聊名称、聊天人数、聊天时间、语气态度等）"
       });
 
       final analysisResponse = await _dio.post(
@@ -151,7 +169,7 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
         options: Options(
           headers: {
             "Authorization":
-                "Bearer fa3e340c52371fb3b05c1ecbd1abdabdf53cd8d5@eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RpdmF0ZWQiOnRydWUsImFnZSI6MSwiYmFuZWQiOmZhbHNlLCJjcmVhdGVfYXQiOjE3NDM4NDU2NDksImV4cCI6MTc0Mzg0NzQ0OSwibW9kZSI6Miwib2FzaXNfaWQiOjIxOTc0OTQyMDMyODU0NjMwNCwidmVyc2lvbiI6Mn0.JENO4aEe_TizaHpVGn8WLntKrrD9CzUxyYv6Dsku6DI...eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHBfaWQiOjEwMjAwLCJkZXZpY2VfaWQiOiJmYTNlMzQwYzUyMzcxZmIzYjA1YzFlY2JkMWFiZGFiZGY1M2NkOGQ1IiwiZXhwIjoxNzQ2NDM3NjQ5LCJvYXNpc19pZCI6MjE5NzQ5NDIwMzI4NTQ2MzA0LCJvYXNpc19yX2F0IjoxNzQzODQ1NjMyLCJwbGF0Zm9ybSI6IndlYiIsInZlcnNpb24iOjN9.XhQNFoDYrVWk5cRlcXHE4Zi7A0BPN5gNX8g9BVIC-64"
+                "Bearer dfd79fa405567382e994a8ffb0312ba503567908@eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RpdmF0ZWQiOnRydWUsImFnZSI6MSwiYmFuZWQiOmZhbHNlLCJjcmVhdGVfYXQiOjE3NDc1NTIxMjUsImV4cCI6MTc0NzU1MzkyNSwibW9kZSI6Miwib2FzaXNfaWQiOjIxOTc0OTQyMDMyODU0NjMwNCwidmVyc2lvbiI6Mn0.tzBLdVk8uHmMJoPTQdHLO_xQnRiAu_mXtp_4wmJStug...eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHBfaWQiOjEwMjAwLCJkZXZpY2VfaWQiOiJkZmQ3OWZhNDA1NTY3MzgyZTk5NGE4ZmZiMDMxMmJhNTAzNTY3OTA4IiwiZXhwIjoxNzUwMTQ0MTI1LCJvYXNpc19pZCI6MjE5NzQ5NDIwMzI4NTQ2MzA0LCJvYXNpc19yX2F0IjoxNzQzODQ1NjMyLCJwbGF0Zm9ybSI6IndlYiIsInZlcnNpb24iOjN9.YkAYmNv74fPMqQhfGp4r_3NoXg6CLtKzXG5d0rGDogc"
           },
         ),
         data: {
@@ -161,7 +179,13 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
           ],
           "stream": false
         },
+        cancelToken: _cancelToken,
       );
+
+      if (!mounted) {
+        _cancelToken?.cancel('Page disposed');
+        return;
+      }
 
       if (analysisResponse.statusCode == 200) {
         setState(() {
@@ -175,13 +199,18 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
         throw Exception('Analysis failed');
       }
     } catch (e) {
+      if (e is DioException && e.type == DioExceptionType.cancel) {
+        print('Upload cancelled');
+        return;
+      }
       print(e);
-      _uploadStatus = '解析失败';
-      _isUploading = false;
-      _imageFiles = null;
-      _imageNames = null;
       if (mounted) {
-        setState(() {});
+        setState(() {
+          _uploadStatus = '解析失败';
+          _isUploading = false;
+          _imageFiles = null;
+          _imageNames = null;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('图片解析失败，请重试')),
         );
@@ -222,7 +251,7 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
       final List<AssetEntity>? assets = await AssetPicker.pickAssets(
         context,
         pickerConfig: const AssetPickerConfig(
-          maxAssets: 1,
+          maxAssets: 8,
           requestType: RequestType.image,
           selectedAssets: [],
         ),
@@ -235,10 +264,13 @@ class _BackgroundDetailsPageState extends State<BackgroundDetailsPage> {
             images.add(XFile(file.path));
           }
         }
-        setState(() {
-          _imageFiles = images;
-        });
-        _uploadImages();
+
+        if (mounted) {
+          setState(() {
+            _imageFiles = images;
+          });
+          _uploadImages();
+        }
       }
     } catch (e) {
       print(e);
@@ -422,6 +454,7 @@ ${_analysisController.text.isNotEmpty ? '消息：${_analysisController.text}' :
                   const SizedBox(height: 8),
                   Text(_uploadStatus),
                 ],
+                const SizedBox(height: 8),
               ],
               const SizedBox(height: 16),
               if (_imageText != null) ...[
@@ -489,8 +522,11 @@ ${_analysisController.text.isNotEmpty ? '消息：${_analysisController.text}' :
 
   @override
   void dispose() {
+    _cancelToken?.cancel('Page disposed');
+    _cancelToken = null;
     _sceneController.dispose();
     _goalController.dispose();
+    _analysisController.dispose();
     _backgroundController.dispose();
     super.dispose();
   }

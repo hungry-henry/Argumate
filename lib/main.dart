@@ -70,7 +70,6 @@ class MyApp extends StatelessWidget {
           hintStyle: const TextStyle(color: Color(0xFFB8B7B2)),
         ));
   }
-  
 
   @override
   Widget build(BuildContext context) {
